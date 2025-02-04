@@ -2,13 +2,24 @@ let currentEmails = [];
 
 // 检查是否已登录
 function checkAuth() {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
     if (token) {
         document.getElementById('login-container').classList.add('hidden');
         document.getElementById('main-content').classList.remove('hidden');
         return true;
     }
     return false;
+}
+
+// 处理认证失败
+function handleAuthError() {
+    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('login-container').classList.remove('hidden');
+    document.getElementById('password').value = '';
+    document.getElementById('remember').checked = false;
+    alert('登录已过期，请重新登录');
 }
 
 // 登录处理
@@ -19,6 +30,9 @@ function handleLogin(event) {
 
     fetch('/.netlify/functions/auth', {
         method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ password })
     })
     .then(response => response.json())
@@ -159,11 +173,17 @@ async function fetchEmails() {
 
         const response = await fetch('/.netlify/functions/email_handler', {
             headers: {
-                'Authorization': `Bearer ${token}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
         console.log('服务器响应状态:', response.status);
         
+        if (response.status === 401) {
+            handleAuthError();
+            return;
+        }
+
         const responseText = await response.text();
         console.log('服务器原始响应:', responseText);
         

@@ -4,7 +4,7 @@ import { simpleParser } from 'mailparser';
 import { Readable } from 'stream';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
+const JWT_SECRET = process.env.JWT_SECRET || 'sage-baklava-cb044e';
 
 const config = {
   user: '1137583371@qq.com',
@@ -141,11 +141,28 @@ function fetchEmails(): Promise<Email[]> {
 }
 
 export const handler: Handler = async (event) => {
+  // 设置CORS头
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Content-Type': 'application/json'
+  };
+
+  // 处理预检请求
+  if (event.httpMethod === 'OPTIONS') {
+    return {
+      statusCode: 204,
+      headers
+    };
+  }
+
   // 检查认证
   const authHeader = event.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return {
       statusCode: 401,
+      headers,
       body: JSON.stringify({ error: '未授权访问' })
     };
   }
@@ -154,6 +171,7 @@ export const handler: Handler = async (event) => {
   if (!verifyToken(token)) {
     return {
       statusCode: 401,
+      headers,
       body: JSON.stringify({ error: '无效的认证令牌' })
     };
   }
@@ -162,12 +180,14 @@ export const handler: Handler = async (event) => {
     const emails = await fetchEmails();
     return {
       statusCode: 200,
+      headers,
       body: JSON.stringify(emails)
     };
   } catch (error) {
     console.error('处理请求时发生错误:', error);
     return {
       statusCode: 500,
+      headers,
       body: JSON.stringify({
         error: '获取邮件失败',
         details: error instanceof Error ? error.message : '未知错误'
