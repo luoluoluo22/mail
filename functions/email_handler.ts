@@ -16,6 +16,9 @@ interface Email {
   subject: string | null;
   from: string | null;
   date: Date | null;
+  text: string | null;
+  html: string | null;
+  preview: string | null;
 }
 
 function fetchEmails(): Promise<Email[]> {
@@ -39,7 +42,7 @@ function fetchEmails(): Promise<Email[]> {
           console.log('成功打开收件箱');
           // 获取最新的10封邮件
           const fetch = imap.seq.fetch(`${Math.max(1, box.messages.total - 9)}:${box.messages.total}`, {
-            bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)'],
+            bodies: [''],
             struct: true
           });
 
@@ -59,7 +62,10 @@ function fetchEmails(): Promise<Email[]> {
                   emails.push({
                     subject: parsed.subject || null,
                     from: parsed.from?.text || null,
-                    date: parsed.date || null
+                    date: parsed.date || null,
+                    text: parsed.text || null,
+                    html: parsed.html || null,
+                    preview: parsed.text ? parsed.text.slice(0, 200) + (parsed.text.length > 200 ? '...' : '') : null
                   });
                   console.log(`成功解析第 ${seqno} 封邮件`);
                   processedCount++;
