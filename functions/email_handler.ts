@@ -12,7 +12,12 @@ const config = {
   host: process.env.EMAIL_HOST || 'imap.qq.com',
   port: Number(process.env.EMAIL_PORT) || 993,
   tls: true,
-  tlsOptions: { rejectUnauthorized: false }
+  tlsOptions: {
+    rejectUnauthorized: false,
+    enableTrace: true
+  },
+  debug: console.log,
+  authTimeout: 3000
 } as const;
 
 interface Email {
