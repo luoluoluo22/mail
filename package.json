@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "QQ Mail Viewer",
   "scripts": {
-    "build": "netlify-lambda build netlify/functions"
+    "build": "netlify-lambda build functions"
   },
   "dependencies": {
     "imap": "^0.8.19",

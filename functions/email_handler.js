@@ -1,5 +1,5 @@
-import Imap from 'imap';
-import { simpleParser } from 'mailparser';
+const Imap = require('imap');
+const { simpleParser } = require('mailparser');
 
 const config = {
   user: '1137583371@qq.com',
@@ -81,7 +81,7 @@ function fetchEmails() {
   });
 }
 
-export async function handler(event, context) {
+exports.handler = async function(event, context) {
   console.log('邮件处理函数开始执行...');
   
   try {
@@ -113,4 +113,4 @@ export async function handler(event, context) {
       })
     };
   }
-} 
+}; 
