@@ -7,21 +7,37 @@ async function fetchEmails() {
         const response = await fetch('/.netlify/functions/email_handler');
         console.log('服务器响应状态:', response.status);
         
+        const responseText = await response.text();
+        console.log('服务器原始响应:', responseText);
+        
         if (!response.ok) {
-            const errorText = await response.text();
-            console.error('服务器错误响应:', errorText);
-            throw new Error(`服务器响应错误 (${response.status}): ${errorText}`);
+            console.error('服务器错误响应:', responseText);
+            throw new Error(`服务器响应错误 (${response.status}): ${responseText}`);
         }
         
-        const emails = await response.json();
-        console.log('获取到的邮件数据:', emails);
+        if (!responseText) {
+            console.error('服务器返回空响应');
+            throw new Error('服务器返回空响应');
+        }
+        
+        let emails;
+        try {
+            emails = JSON.parse(responseText);
+            console.log('解析后的邮件数据:', emails);
+        } catch (e) {
+            console.error('解析响应JSON失败:', e);
+            throw new Error(`解析服务器响应失败: ${e.message}`);
+        }
         
         if (emails.error) {
             console.error('邮件服务器返回错误:', emails.error);
             container.innerHTML = `<div class="error">
                 <h3>邮件服务器错误</h3>
                 <p>${emails.error}</p>
+                ${emails.stack ? `<pre>${emails.stack}</pre>` : ''}
+                ${emails.details ? `<p>${emails.details}</p>` : ''}
                 <p>请稍后重试或联系管理员</p>
+                <button onclick="fetchEmails()">重试</button>
             </div>`;
             return;
         }
