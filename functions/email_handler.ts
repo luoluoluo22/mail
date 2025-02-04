@@ -1,8 +1,9 @@
 import { Handler } from '@netlify/functions';
 import * as Imap from 'imap';
-import { simpleParser } from 'mailparser';
+import { ParsedMail, simpleParser } from 'mailparser';
+import { Readable } from 'stream';
 
-const config = {
+const config: Imap.Config = {
   user: '1137583371@qq.com',
   password: 'wrtckdfbevlujdec',
   host: 'imap.qq.com',
@@ -41,14 +42,14 @@ function fetchEmails(): Promise<Email[]> {
 
           fetch.on('message', (msg, seqno) => {
             console.log(`处理第 ${seqno} 封邮件`);
-            msg.on('body', stream => {
+            msg.on('body', (stream: Readable) => {
               let buffer = '';
-              stream.on('data', chunk => {
+              stream.on('data', (chunk: Buffer) => {
                 buffer += chunk.toString('utf8');
               });
-              stream.once('end', () => {
+              stream.once('end', async () => {
                 try {
-                  const parsed = simpleParser(buffer);
+                  const parsed = await simpleParser(buffer);
                   emails.push({
                     subject: parsed.subject || null,
                     from: parsed.from?.text || null,
@@ -62,7 +63,7 @@ function fetchEmails(): Promise<Email[]> {
             });
           });
 
-          fetch.once('error', err => {
+          fetch.once('error', (err: Error) => {
             console.error('获取邮件时发生错误:', err);
             reject(err);
           });
@@ -75,7 +76,7 @@ function fetchEmails(): Promise<Email[]> {
         });
       });
 
-      imap.once('error', err => {
+      imap.once('error', (err: Error) => {
         console.error('IMAP连接错误:', err);
         reject(err);
       });
