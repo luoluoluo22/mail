@@ -7,10 +7,10 @@ import jwt from 'jsonwebtoken';
 const JWT_SECRET = process.env.JWT_SECRET || 'sage-baklava-cb044e';
 
 const config = {
-  user: '1137583371@qq.com',
-  password: 'wrtckdfbevlujdec',
-  host: 'imap.qq.com',
-  port: 993,
+  user: process.env.EMAIL_USER,
+  password: process.env.EMAIL_PASSWORD,
+  host: process.env.EMAIL_HOST || 'imap.qq.com',
+  port: Number(process.env.EMAIL_PORT) || 993,
   tls: true,
   tlsOptions: { rejectUnauthorized: false }
 } as const;

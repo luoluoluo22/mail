@@ -36,22 +36,16 @@ npm install
    在 Netlify 的站点设置中，添加以下环境变量：
    - `APP_PASSWORD`: 访问密码（默认：123456）
    - `JWT_SECRET`: JWT 密钥（推荐使用随机字符串）
+   - `EMAIL_USER`: QQ邮箱账号（例如：123456789@qq.com）
+   - `EMAIL_PASSWORD`: QQ邮箱IMAP授权码
+   - `EMAIL_HOST`: 邮箱服务器地址（默认：imap.qq.com）
+   - `EMAIL_PORT`: 邮箱服务器端口（默认：993）
 
 5. 配置 QQ 邮箱：
    - 登录 QQ 邮箱
    - 开启 IMAP 服务
    - 获取授权码
-   - 在 `functions/email_handler.ts` 中更新配置：
-     ```typescript
-     const config = {
-       user: '您的QQ邮箱@qq.com',
-       password: '您的授权码',
-       host: 'imap.qq.com',
-       port: 993,
-       tls: true,
-       tlsOptions: { rejectUnauthorized: false }
-     };
-     ```
+   - 将授权码配置到环境变量 `EMAIL_PASSWORD` 中
 
 ## 本地开发
 
@@ -64,6 +58,10 @@ npm install
 ```
 APP_PASSWORD=123456
 JWT_SECRET=your-secret-key
+EMAIL_USER=your-qq@qq.com
+EMAIL_PASSWORD=your-imap-password
+EMAIL_HOST=imap.qq.com
+EMAIL_PORT=993
 ```
 
 3. 运行开发服务器：
