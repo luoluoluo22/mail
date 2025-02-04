@@ -1,6 +1,6 @@
 import { Handler } from '@netlify/functions';
 import * as Imap from 'imap';
-import { ParsedMail, simpleParser } from 'mailparser';
+import { simpleParser } from 'mailparser';
 import { Readable } from 'stream';
 
 const config: Imap.Config = {
@@ -27,7 +27,7 @@ function fetchEmails(): Promise<Email[]> {
 
       imap.once('ready', () => {
         console.log('IMAP连接就绪');
-        imap.openBox('INBOX', false, (err, box) => {
+        imap.openBox('INBOX', false, (err: Error | null, box: Imap.Box) => {
           if (err) {
             console.error('打开收件箱失败:', err);
             reject(err);
@@ -40,7 +40,7 @@ function fetchEmails(): Promise<Email[]> {
             struct: true
           });
 
-          fetch.on('message', (msg, seqno) => {
+          fetch.on('message', (msg: Imap.ImapMessage, seqno: number) => {
             console.log(`处理第 ${seqno} 封邮件`);
             msg.on('body', (stream: Readable) => {
               let buffer = '';
