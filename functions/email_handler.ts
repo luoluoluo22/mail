@@ -1,6 +1,6 @@
-const Imap = require('imap');
-const { simpleParser } = require('mailparser');
-const { Buffer } = require('buffer/');
+import { Handler } from '@netlify/functions';
+import * as Imap from 'imap';
+import { simpleParser } from 'mailparser';
 
 const config = {
   user: '1137583371@qq.com',
@@ -11,12 +11,18 @@ const config = {
   tlsOptions: { rejectUnauthorized: false }
 };
 
-function fetchEmails() {
+interface Email {
+  subject: string | null;
+  from: string | null;
+  date: Date | null;
+}
+
+function fetchEmails(): Promise<Email[]> {
   return new Promise((resolve, reject) => {
     try {
       console.log('创建IMAP连接...');
       const imap = new Imap(config);
-      const emails = [];
+      const emails: Email[] = [];
 
       imap.once('ready', () => {
         console.log('IMAP连接就绪');
@@ -26,7 +32,7 @@ function fetchEmails() {
             reject(err);
             return;
           }
-          
+
           console.log('成功打开收件箱');
           const fetch = imap.seq.fetch('1:10', {
             bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)'],
@@ -44,9 +50,9 @@ function fetchEmails() {
                 try {
                   const parsed = simpleParser(buffer);
                   emails.push({
-                    subject: parsed.subject,
-                    from: parsed.from ? parsed.from.text : null,
-                    date: parsed.date
+                    subject: parsed.subject || null,
+                    from: parsed.from?.text || null,
+                    date: parsed.date || null
                   });
                   console.log(`成功解析第 ${seqno} 封邮件`);
                 } catch (err) {
@@ -60,7 +66,7 @@ function fetchEmails() {
             console.error('获取邮件时发生错误:', err);
             reject(err);
           });
-          
+
           fetch.once('end', () => {
             console.log('所有邮件获取完成');
             imap.end();
@@ -87,14 +93,14 @@ function fetchEmails() {
   });
 }
 
-exports.handler = async function(event, context) {
+export const handler: Handler = async (event, context) => {
   console.log('邮件处理函数开始执行...');
-  
+
   try {
     console.log('尝试获取邮件...');
     const emails = await fetchEmails();
     console.log('成功获取邮件:', emails);
-    
+
     return {
       statusCode: 200,
       headers: {
@@ -105,16 +111,16 @@ exports.handler = async function(event, context) {
     };
   } catch (error) {
     console.error('邮件处理函数发生错误:', error);
-    
+
     return {
       statusCode: 500,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'
       },
-      body: JSON.stringify({ 
-        error: error.message,
-        stack: error.stack,
+      body: JSON.stringify({
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
         details: '获取邮件时发生错误'
       })
     };

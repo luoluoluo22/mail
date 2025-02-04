@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "QQ Mail Viewer",
   "scripts": {
-    "build": "netlify functions:build --src functions --functions functions-build"
+    "build": "tsc functions/*.ts"
   },
   "dependencies": {
     "imap": "^0.8.19",
@@ -11,6 +11,8 @@
     "buffer": "^6.0.3"
   },
   "devDependencies": {
-    "@netlify/functions": "^2.0.0"
+    "@netlify/functions": "^2.0.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 } 
