@@ -1,5 +1,5 @@
-const Imap = require('imap');
-const { simpleParser } = require('mailparser');
+import Imap from 'imap';
+import { simpleParser } from 'mailparser';
 
 const config = {
   user: '1137583371@qq.com',
@@ -8,40 +8,6 @@ const config = {
   port: 993,
   tls: true,
   tlsOptions: { rejectUnauthorized: false }
-};
-
-exports.handler = async function(event, context) {
-  console.log('邮件处理函数开始执行...');
-  
-  try {
-    console.log('尝试获取邮件...');
-    const emails = await fetchEmails();
-    console.log('成功获取邮件:', emails);
-    
-    return {
-      statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify(emails)
-    };
-  } catch (error) {
-    console.error('邮件处理函数发生错误:', error);
-    
-    return {
-      statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: JSON.stringify({ 
-        error: error.message,
-        stack: error.stack,
-        details: '获取邮件时发生错误'
-      })
-    };
-  }
 };
 
 function fetchEmails() {
@@ -113,4 +79,38 @@ function fetchEmails() {
       reject(error);
     }
   });
+}
+
+export async function handler(event, context) {
+  console.log('邮件处理函数开始执行...');
+  
+  try {
+    console.log('尝试获取邮件...');
+    const emails = await fetchEmails();
+    console.log('成功获取邮件:', emails);
+    
+    return {
+      statusCode: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify(emails)
+    };
+  } catch (error) {
+    console.error('邮件处理函数发生错误:', error);
+    
+    return {
+      statusCode: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      },
+      body: JSON.stringify({ 
+        error: error.message,
+        stack: error.stack,
+        details: '获取邮件时发生错误'
+      })
+    };
+  }
 } 
