@@ -8,7 +8,9 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["es2020"],
+    "lib": [
+      "es2020"
+    ],
     "moduleResolution": "node"
   },
   "include": [

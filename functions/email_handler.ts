@@ -1,16 +1,16 @@
 import { Handler } from '@netlify/functions';
-import * as Imap from 'imap';
+import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import { Readable } from 'stream';
 
-const config: Imap.Config = {
+const config = {
   user: '1137583371@qq.com',
   password: 'wrtckdfbevlujdec',
   host: 'imap.qq.com',
   port: 993,
   tls: true,
   tlsOptions: { rejectUnauthorized: false }
-};
+} as const;
 
 interface Email {
   subject: string | null;
@@ -22,12 +22,12 @@ function fetchEmails(): Promise<Email[]> {
   return new Promise((resolve, reject) => {
     try {
       console.log('创建IMAP连接...');
-      const imap = new Imap(config);
+      const imap = new (Imap as any)(config);
       const emails: Email[] = [];
 
       imap.once('ready', () => {
         console.log('IMAP连接就绪');
-        imap.openBox('INBOX', false, (err: Error | null, box: Imap.Box) => {
+        imap.openBox('INBOX', false, (err: Error | null, box: any) => {
           if (err) {
             console.error('打开收件箱失败:', err);
             reject(err);
@@ -40,7 +40,7 @@ function fetchEmails(): Promise<Email[]> {
             struct: true
           });
 
-          fetch.on('message', (msg: Imap.ImapMessage, seqno: number) => {
+          fetch.on('message', (msg: any, seqno: number) => {
             console.log(`处理第 ${seqno} 封邮件`);
             msg.on('body', (stream: Readable) => {
               let buffer = '';
