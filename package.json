@@ -1,0 +1,9 @@
+{
+  "name": "qq-mail-viewer",
+  "version": "1.0.0",
+  "description": "QQ Mail Viewer",
+  "dependencies": {
+    "imap": "^0.8.19",
+    "mailparser": "^3.6.9"
+  }
+} 
