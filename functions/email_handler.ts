@@ -24,6 +24,8 @@ function fetchEmails(): Promise<Email[]> {
       console.log('创建IMAP连接...');
       const imap = new (Imap as any)(config);
       const emails: Email[] = [];
+      let processedCount = 0;
+      let totalMessages = 0;
 
       imap.once('ready', () => {
         console.log('IMAP连接就绪');
@@ -35,10 +37,14 @@ function fetchEmails(): Promise<Email[]> {
           }
 
           console.log('成功打开收件箱');
-          const fetch = imap.seq.fetch('1:10', {
+          // 获取最新的10封邮件
+          const fetch = imap.seq.fetch(`${Math.max(1, box.messages.total - 9)}:${box.messages.total}`, {
             bodies: ['HEADER.FIELDS (FROM TO SUBJECT DATE)'],
             struct: true
           });
+
+          totalMessages = Math.min(10, box.messages.total);
+          console.log(`准备获取 ${totalMessages} 封邮件`);
 
           fetch.on('message', (msg: any, seqno: number) => {
             console.log(`处理第 ${seqno} 封邮件`);
@@ -56,8 +62,30 @@ function fetchEmails(): Promise<Email[]> {
                     date: parsed.date || null
                   });
                   console.log(`成功解析第 ${seqno} 封邮件`);
+                  processedCount++;
+
+                  if (processedCount === totalMessages) {
+                    console.log('所有邮件处理完成');
+                    imap.end();
+                    resolve(emails.sort((a, b) => {
+                      const dateA = a.date ? new Date(a.date).getTime() : 0;
+                      const dateB = b.date ? new Date(b.date).getTime() : 0;
+                      return dateB - dateA;
+                    }));
+                  }
                 } catch (err) {
                   console.error(`解析第 ${seqno} 封邮件失败:`, err);
+                  processedCount++;
+
+                  if (processedCount === totalMessages) {
+                    console.log('所有邮件处理完成（包含错误）');
+                    imap.end();
+                    resolve(emails.sort((a, b) => {
+                      const dateA = a.date ? new Date(a.date).getTime() : 0;
+                      const dateB = b.date ? new Date(b.date).getTime() : 0;
+                      return dateB - dateA;
+                    }));
+                  }
                 }
               });
             });
@@ -65,13 +93,12 @@ function fetchEmails(): Promise<Email[]> {
 
           fetch.once('error', (err: Error) => {
             console.error('获取邮件时发生错误:', err);
+            imap.end();
             reject(err);
           });
 
           fetch.once('end', () => {
-            console.log('所有邮件获取完成');
-            imap.end();
-            resolve(emails);
+            console.log('邮件获取完成，等待处理...');
           });
         });
       });
