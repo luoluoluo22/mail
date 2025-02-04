@@ -151,7 +151,17 @@ async function fetchEmails() {
     
     try {
         console.log('开始获取邮件...');
-        const response = await fetch('/.netlify/functions/email_handler');
+        // 获取认证令牌
+        const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
+        if (!token) {
+            throw new Error('未登录');
+        }
+
+        const response = await fetch('/.netlify/functions/email_handler', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
         console.log('服务器响应状态:', response.status);
         
         const responseText = await response.text();
