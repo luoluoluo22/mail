@@ -2,6 +2,9 @@ import { Handler } from '@netlify/functions';
 import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import { Readable } from 'stream';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 
 const config = {
   user: '1137583371@qq.com',
@@ -19,6 +22,16 @@ interface Email {
   text: string | null;
   html: string | null;
   preview: string | null;
+}
+
+// 验证JWT token
+function verifyToken(token: string): boolean {
+  try {
+    jwt.verify(token, JWT_SECRET);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function fetchEmails(): Promise<Email[]> {
@@ -127,35 +140,37 @@ function fetchEmails(): Promise<Email[]> {
   });
 }
 
-export const handler: Handler = async (event, context) => {
-  console.log('邮件处理函数开始执行...');
+export const handler: Handler = async (event) => {
+  // 检查认证
+  const authHeader = event.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: '未授权访问' })
+    };
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!verifyToken(token)) {
+    return {
+      statusCode: 401,
+      body: JSON.stringify({ error: '无效的认证令牌' })
+    };
+  }
 
   try {
-    console.log('尝试获取邮件...');
     const emails = await fetchEmails();
-    console.log('成功获取邮件:', emails);
-
     return {
       statusCode: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
       body: JSON.stringify(emails)
     };
   } catch (error) {
-    console.error('邮件处理函数发生错误:', error);
-
+    console.error('处理请求时发生错误:', error);
     return {
       statusCode: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*'
-      },
       body: JSON.stringify({
-        error: error instanceof Error ? error.message : String(error),
-        stack: error instanceof Error ? error.stack : undefined,
-        details: '获取邮件时发生错误'
+        error: '获取邮件失败',
+        details: error instanceof Error ? error.message : '未知错误'
       })
     };
   }

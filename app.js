@@ -1,5 +1,57 @@
 let currentEmails = [];
 
+// 检查是否已登录
+function checkAuth() {
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+        document.getElementById('login-container').classList.add('hidden');
+        document.getElementById('main-content').classList.remove('hidden');
+        return true;
+    }
+    return false;
+}
+
+// 登录处理
+function handleLogin(event) {
+    event.preventDefault();
+    const password = document.getElementById('password').value;
+    const remember = document.getElementById('remember').checked;
+
+    fetch('/.netlify/functions/auth', {
+        method: 'POST',
+        body: JSON.stringify({ password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            if (remember) {
+                localStorage.setItem('auth_token', data.token);
+            } else {
+                sessionStorage.setItem('auth_token', data.token);
+            }
+            document.getElementById('login-container').classList.add('hidden');
+            document.getElementById('main-content').classList.remove('hidden');
+            fetchEmails();
+        } else {
+            alert('密码错误');
+        }
+    })
+    .catch(error => {
+        console.error('登录失败:', error);
+        alert('登录失败，请重试');
+    });
+}
+
+// 退出登录
+function logout() {
+    localStorage.removeItem('auth_token');
+    sessionStorage.removeItem('auth_token');
+    document.getElementById('main-content').classList.add('hidden');
+    document.getElementById('login-container').classList.remove('hidden');
+    document.getElementById('password').value = '';
+    document.getElementById('remember').checked = false;
+}
+
 function formatDate(dateStr) {
     const date = new Date(dateStr);
     const now = new Date();
@@ -50,7 +102,51 @@ function closeModal() {
     modal.classList.add('hidden');
 }
 
+function renderLatestEmail(email) {
+    const container = document.getElementById('latest-email-content');
+    container.innerHTML = `
+        <div class="cursor-pointer hover:bg-gray-50" onclick="showModal(currentEmails[0])">
+            <div class="flex justify-between items-start">
+                <h3 class="text-xl font-semibold text-gray-900 mb-2">${email.subject || '(无主题)'}</h3>
+                <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
+            </div>
+            <p class="text-gray-600 mb-2">${email.from || '未知'}</p>
+            <p class="text-gray-500 text-sm email-preview">${email.preview || '(无预览)'}</p>
+        </div>
+    `;
+}
+
+function renderEmailList(emails) {
+    const container = document.getElementById('email-container');
+    
+    if (emails.length <= 1) {
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-900">没有更多邮件</h3>
+                <p class="mt-1 text-sm text-gray-500">暂时没有其他邮件。</p>
+            </div>`;
+        return;
+    }
+    
+    const emailsHTML = emails.slice(1).map((email, index) => `
+        <div class="email-item bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-gray-50" onclick="showModal(currentEmails[${index + 1}])">
+            <div class="flex justify-between items-start">
+                <h3 class="text-lg font-semibold text-gray-900 mb-2">${email.subject || '(无主题)'}</h3>
+                <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
+            </div>
+            <p class="text-gray-600 mb-2">${email.from || '未知'}</p>
+            <p class="text-gray-500 text-sm email-preview">${email.preview || '(无预览)'}</p>
+        </div>
+    `).join('');
+    
+    container.innerHTML = emailsHTML;
+}
+
 async function fetchEmails() {
+    const latestEmailContainer = document.getElementById('latest-email-content');
     const container = document.getElementById('email-container');
     
     try {
@@ -83,7 +179,7 @@ async function fetchEmails() {
         
         if (emails.error) {
             console.error('邮件服务器返回错误:', emails.error);
-            container.innerHTML = `
+            const errorHTML = `
                 <div class="bg-red-50 border-l-4 border-red-500 p-4">
                     <div class="flex">
                         <div class="flex-shrink-0">
@@ -100,6 +196,8 @@ async function fetchEmails() {
                     </div>
                     <button onclick="fetchEmails()" class="mt-4 bg-red-100 text-red-800 px-4 py-2 rounded hover:bg-red-200">重试</button>
                 </div>`;
+            latestEmailContainer.innerHTML = errorHTML;
+            container.innerHTML = '';
             return;
         }
         
@@ -109,7 +207,7 @@ async function fetchEmails() {
         }
         
         if (emails.length === 0) {
-            container.innerHTML = `
+            const emptyHTML = `
                 <div class="text-center py-12">
                     <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -117,26 +215,22 @@ async function fetchEmails() {
                     <h3 class="mt-2 text-sm font-medium text-gray-900">没有邮件</h3>
                     <p class="mt-1 text-sm text-gray-500">收件箱中没有找到任何邮件。</p>
                 </div>`;
+            latestEmailContainer.innerHTML = emptyHTML;
+            container.innerHTML = '';
             return;
         }
         
-        const emailsHTML = emails.map((email, index) => `
-            <div class="email-item bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-gray-50" onclick="showModal(currentEmails[${index}])">
-                <div class="flex justify-between items-start">
-                    <h3 class="text-lg font-semibold text-gray-900 mb-2">${email.subject || '(无主题)'}</h3>
-                    <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
-                </div>
-                <p class="text-gray-600 mb-2">${email.from || '未知'}</p>
-                <p class="text-gray-500 text-sm email-preview">${email.preview || '(无预览)'}</p>
-            </div>
-        `).join('');
+        // 渲染最新邮件
+        renderLatestEmail(emails[0]);
         
-        container.innerHTML = emailsHTML;
+        // 渲染其他邮件列表
+        renderEmailList(emails);
+        
         console.log('邮件显示完成');
         
     } catch (error) {
         console.error('获取邮件时发生错误:', error);
-        container.innerHTML = `
+        const errorHTML = `
             <div class="bg-red-50 border-l-4 border-red-500 p-4">
                 <div class="flex">
                     <div class="flex-shrink-0">
@@ -151,16 +245,20 @@ async function fetchEmails() {
                 </div>
                 <button onclick="fetchEmails()" class="mt-4 bg-red-100 text-red-800 px-4 py-2 rounded hover:bg-red-200">重试</button>
             </div>`;
+        latestEmailContainer.innerHTML = errorHTML;
+        container.innerHTML = '';
     }
 }
 
-// 页面加载时获取邮件
-console.log('页面加载，准备获取邮件...');
-fetchEmails();
-
-// 点击模态框背景时关闭
+// 初始化
+document.getElementById('login-form').addEventListener('submit', handleLogin);
 document.getElementById('email-modal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeModal();
     }
-}); 
+});
+
+// 检查登录状态并加载邮件
+if (checkAuth()) {
+    fetchEmails();
+} 

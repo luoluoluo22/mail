@@ -25,23 +25,85 @@
                 transform: rotate(360deg);
             }
         }
+
+        .fade-enter {
+            opacity: 0;
+            transform: translateY(-10px);
+        }
+        
+        .fade-enter-active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 300ms, transform 300ms;
+        }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen">
-    <div class="container mx-auto px-4 py-8">
+    <!-- 登录界面 -->
+    <div id="login-container" class="fixed inset-0 bg-gray-100 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-lg max-w-md w-full mx-4">
+            <h2 class="text-2xl font-bold text-gray-900 mb-6 text-center">邮件查看器</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+                    <input type="password" id="password" name="password" required
+                        class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                </div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="remember" name="remember" class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="remember" class="ml-2 block text-sm text-gray-900">记住密码</label>
+                </div>
+                <div>
+                    <button type="submit"
+                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        登录
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="main-content" class="container mx-auto px-4 py-8 hidden">
         <header class="mb-8">
-            <h1 class="text-3xl font-bold text-gray-900">邮件查看器</h1>
-            <p class="text-gray-600 mt-2">查看您的最新邮件</p>
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-900">邮件查看器</h1>
+                    <p class="text-gray-600 mt-2">查看您的最新邮件</p>
+                </div>
+                <button onclick="logout()" class="text-gray-600 hover:text-gray-900">
+                    退出登录
+                </button>
+            </div>
         </header>
 
         <main>
-            <div id="email-container" class="space-y-4">
-                <div class="flex justify-center items-center py-12">
-                    <svg class="animate-spin h-8 w-8 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span class="ml-3 text-gray-600">正在加载邮件...</span>
+            <!-- 最新邮件展示区 -->
+            <div id="latest-email" class="mb-8">
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">最新邮件</h2>
+                <div id="latest-email-content" class="bg-white rounded-lg shadow-lg p-6">
+                    <div class="animate-pulse flex space-x-4">
+                        <div class="flex-1 space-y-4 py-1">
+                            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div class="space-y-2">
+                                <div class="h-4 bg-gray-200 rounded"></div>
+                                <div class="h-4 bg-gray-200 rounded w-5/6"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 其他邮件列表 -->
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-4">历史邮件</h2>
+                <div id="email-container" class="space-y-4">
+                    <div class="flex justify-center items-center py-12">
+                        <svg class="animate-spin h-8 w-8 text-gray-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span class="ml-3 text-gray-600">正在加载邮件...</span>
+                    </div>
                 </div>
             </div>
         </main>

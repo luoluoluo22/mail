@@ -1,17 +1,23 @@
 {
   "name": "qq-mail-viewer",
   "version": "1.0.0",
-  "description": "QQ Mail Viewer",
+  "description": "QQ邮箱查看器",
+  "main": "index.js",
   "scripts": {
     "build": "tsc"
   },
   "dependencies": {
+    "@netlify/functions": "^2.4.1",
+    "@types/imap": "^0.8.40",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/mailparser": "^3.4.4",
+    "@types/node": "^20.10.5",
     "imap": "^0.8.19",
-    "mailparser": "^3.6.9",
-    "buffer": "^6.0.3"
+    "jsonwebtoken": "^9.0.2",
+    "mailparser": "^3.6.5",
+    "typescript": "^5.3.3"
   },
   "devDependencies": {
-    "@netlify/functions": "^2.0.0",
     "@types/node": "^20.0.0",
     "@types/imap": "^0.8.40",
     "@types/mailparser": "^3.4.4",
