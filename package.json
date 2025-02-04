@@ -3,13 +3,14 @@
   "version": "1.0.0",
   "description": "QQ Mail Viewer",
   "scripts": {
-    "build": "netlify-lambda build functions"
+    "build": "netlify functions:build --src functions --functions functions-build"
   },
   "dependencies": {
     "imap": "^0.8.19",
-    "mailparser": "^3.6.9"
+    "mailparser": "^3.6.9",
+    "buffer": "^6.0.3"
   },
   "devDependencies": {
-    "netlify-lambda": "^2.0.15"
+    "@netlify/functions": "^2.0.0"
   }
 } 

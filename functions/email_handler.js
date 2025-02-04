@@ -1,5 +1,6 @@
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
+const { Buffer } = require('buffer/');
 
 const config = {
   user: '1137583371@qq.com',
@@ -35,17 +36,22 @@ function fetchEmails() {
           fetch.on('message', (msg, seqno) => {
             console.log(`处理第 ${seqno} 封邮件`);
             msg.on('body', stream => {
-              simpleParser(stream, (err, parsed) => {
-                if (err) {
+              let buffer = '';
+              stream.on('data', chunk => {
+                buffer += chunk.toString('utf8');
+              });
+              stream.once('end', () => {
+                try {
+                  const parsed = simpleParser(buffer);
+                  emails.push({
+                    subject: parsed.subject,
+                    from: parsed.from ? parsed.from.text : null,
+                    date: parsed.date
+                  });
+                  console.log(`成功解析第 ${seqno} 封邮件`);
+                } catch (err) {
                   console.error(`解析第 ${seqno} 封邮件失败:`, err);
-                  return;
                 }
-                emails.push({
-                  subject: parsed.subject,
-                  from: parsed.from ? parsed.from.text : null,
-                  date: parsed.date
-                });
-                console.log(`成功解析第 ${seqno} 封邮件`);
               });
             });
           });
