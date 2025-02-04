@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>邮件查看器</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         .email-preview {
@@ -35,6 +36,11 @@
             opacity: 1;
             transform: translateY(0);
             transition: opacity 300ms, transform 300ms;
+        }
+
+        .latest-email-content {
+            max-height: none;
+            overflow: visible;
         }
     </style>
 </head>
@@ -92,6 +98,9 @@
                     </div>
                 </div>
             </div>
+
+            <!-- 分隔线 -->
+            <div class="border-t border-gray-200 my-8"></div>
 
             <!-- 其他邮件列表 -->
             <div>

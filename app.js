@@ -119,13 +119,19 @@ function closeModal() {
 function renderLatestEmail(email) {
     const container = document.getElementById('latest-email-content');
     container.innerHTML = `
-        <div class="cursor-pointer hover:bg-gray-50" onclick="showModal(currentEmails[0])">
+        <div class="space-y-4">
             <div class="flex justify-between items-start">
-                <h3 class="text-xl font-semibold text-gray-900 mb-2">${email.subject || '(无主题)'}</h3>
+                <h3 class="text-xl font-semibold text-gray-900">${email.subject || '(无主题)'}</h3>
                 <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
             </div>
-            <p class="text-gray-600 mb-2">${email.from || '未知'}</p>
-            <p class="text-gray-500 text-sm email-preview">${email.preview || '(无预览)'}</p>
+            <div class="space-y-2">
+                <p class="text-gray-600">${email.from || '未知'}</p>
+                <div class="border-t border-gray-100 pt-4">
+                    <div class="prose max-w-none">
+                        ${email.html || email.text || '(无内容)'}
+                    </div>
+                </div>
+            </div>
         </div>
     `;
 }
