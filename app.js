@@ -57,43 +57,66 @@ function logout() {
     location.reload();
 }
 
-// 增强版验证码提取逻辑
+// 增强版验证码提取逻辑 (V3: 严格模式)
 function extractCode(text, subject) {
-    const combined = ((subject || '') + " " + (text || '')).replace(/\s+/g, ' ');
-    const codeKeywords = ['验证码', 'code', '码', 'verification', 'otp', 'token', '验证碼'];
+    const sub = (subject || '').toLowerCase();
+    const body = (text || '').replace(/\s+/g, ' ');
+    const combined = sub + " " + body;
 
-    // 1. 尝试匹配关键词后面的数字 (优先)
-    for (const kw of codeKeywords) {
-        const regex = new RegExp(`${kw}[^0-9]*?(\\d{4,6})(?!\\d)`, 'i');
+    // 如果主题包含以下词汇，极大概率不是验证码邮件，除非正文有强匹配
+    const isNotification = /话题|通知|回复|订阅|newsletter|comment|reply|post/i.test(sub);
+
+    const codeKeywords = ['验证码', 'verification code', 'verify code', 'otp', 'token', '验证碼', 'security code'];
+    const shortKeywords = ['code', 'pin', 'passcode'];
+
+    // 1. 强匹配：关键词 + 紧随其后的数字
+    for (const kw of [...codeKeywords, ...shortKeywords]) {
+        const regex = new RegExp(`${kw}[^0-9]{0,15}(\\d{4,6})(?!\\d)`, 'i');
         const match = combined.match(regex);
         if (match) return match[1];
     }
 
-    // 2. 兜底策略：匹配所有 4-6 位数字，排除年份干扰
-    const matches = combined.match(/(?<!\d)\d{4,6}(?!\d)/g);
-    if (matches) {
-        // 过滤掉 2020-2030 之间的年份
-        const filtered = matches.filter(m => {
-            const n = parseInt(m);
-            return n < 2020 || n > 2030;
-        });
-        if (filtered.length > 0) return filtered[0];
-        return matches[0];
+    // 2. 弱匹配：只有在主题看起来像验证码邮件时，才进行兜底搜索
+    const isLikelyCodeEmail = codeKeywords.some(kw => sub.includes(kw)) ||
+                             (sub.includes('code') && !isNotification);
+
+    if (isLikelyCodeEmail) {
+        const matches = body.match(/(?<!\d)\d{4,6}(?!\d)/g);
+        if (matches) {
+            const filtered = matches.filter(m => {
+                const n = parseInt(m);
+                return n < 2020 || n > 2035; // 排除年份
+            });
+            if (filtered.length > 0) return filtered[0];
+        }
     }
+
     return null;
 }
 
 // 复制功能
 function copyToClipboard(text, btn) {
-    navigator.clipboard.writeText(text).then(() => {
-        const oldText = btn.innerText;
-        btn.innerText = '已复制 ' + text;
-        btn.classList.replace('bg-indigo-600', 'bg-green-600');
-        setTimeout(() => {
-            btn.innerText = oldText;
-            btn.classList.replace('bg-green-600', 'bg-indigo-600');
-        }, 2000);
-    });
+    if (!navigator.clipboard) {
+        const input = document.createElement('input');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        updateBtnState(btn, text);
+        return;
+    }
+    navigator.clipboard.writeText(text).then(() => updateBtnState(btn, text));
+}
+
+function updateBtnState(btn, text) {
+    const oldText = btn.innerText;
+    btn.innerText = '已复制 ' + text;
+    btn.classList.replace('bg-indigo-600', 'bg-green-600');
+    setTimeout(() => {
+        btn.innerText = oldText;
+        btn.classList.replace('bg-green-600', 'bg-indigo-600');
+    }, 2000);
 }
 
 function formatDate(dateStr) {
@@ -113,20 +136,20 @@ function renderLatestEmail(email) {
     const code = extractCode(email.text, email.subject);
     container.innerHTML = `
         <div class="space-y-4">
-            <div class="flex justify-between items-start">
-                <div>
+            <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+                <div class="flex-1">
                     <h3 class="text-xl font-bold ${email.isUnseen ? 'text-indigo-600' : 'text-gray-900'}">
                         ${email.isUnseen ? '<span class="inline-block w-2 h-2 bg-indigo-600 rounded-full mr-2"></span>' : ''}${email.subject || '(无主题)'}
                     </h3>
                     <p class="text-sm text-gray-500 mt-1">${email.from} · ${formatDate(email.date)}</p>
                 </div>
                 ${code ? `
-                    <button onclick="copyToClipboard('${code}', this)" class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition-all transform hover:scale-105">
+                    <button onclick="copyToClipboard('${code}', this)" class="w-full md:w-auto bg-indigo-600 text-white px-6 py-3 rounded-lg font-bold shadow-lg hover:bg-indigo-700 transition-all transform active:scale-95">
                         点击复制验证码: ${code}
                     </button>
                 ` : ''}
             </div>
-            <div class="border-t border-gray-100 pt-4 prose max-w-none">
+            <div class="border-t border-gray-100 pt-4 prose max-w-none overflow-x-auto">
                 ${email.html || email.text || ''}
             </div>
         </div>
