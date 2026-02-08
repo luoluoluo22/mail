@@ -43,7 +43,7 @@ export const handler: Handler = async (event) => {
     }
 
     // 生成JWT token
-    const token = jwt.sign({ authorized: true }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ authorized: true }, JWT_SECRET, { expiresIn: '3650d' });
 
     return {
       statusCode: 200,
