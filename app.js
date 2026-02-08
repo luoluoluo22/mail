@@ -1,4 +1,5 @@
 let currentEmails = [];
+let refreshTimer = null;
 
 // 检查是否已登录
 function checkAuth() {
@@ -6,19 +7,31 @@ function checkAuth() {
     if (token) {
         document.getElementById('login-container').classList.add('hidden');
         document.getElementById('main-content').classList.remove('hidden');
+        startAutoRefresh();
         return true;
     }
     return false;
+}
+
+// 自动刷新逻辑
+function startAutoRefresh() {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+        if (!document.hidden && !document.getElementById('main-content').classList.contains('hidden')) {
+            fetchEmails();
+        }
+    }, 15000); // 15秒刷新一次
 }
 
 // 处理认证失败
 function handleAuthError() {
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');
+    if (refreshTimer) clearInterval(refreshTimer);
     document.getElementById('main-content').classList.add('hidden');
     document.getElementById('login-container').classList.remove('hidden');
     document.getElementById('password').value = '';
-    document.getElementById('remember').checked = false;
+    document.getElementById('remember').checked = true;
     alert('登录已过期，请重新登录');
 }
 
@@ -45,6 +58,7 @@ function handleLogin(event) {
             }
             document.getElementById('login-container').classList.add('hidden');
             document.getElementById('main-content').classList.remove('hidden');
+            startAutoRefresh();
             fetchEmails();
         } else {
             alert('密码错误');
@@ -60,10 +74,31 @@ function handleLogin(event) {
 function logout() {
     localStorage.removeItem('auth_token');
     sessionStorage.removeItem('auth_token');
+    if (refreshTimer) clearInterval(refreshTimer);
     document.getElementById('main-content').classList.add('hidden');
     document.getElementById('login-container').classList.remove('hidden');
     document.getElementById('password').value = '';
-    document.getElementById('remember').checked = false;
+}
+
+// 提取验证码
+function extractCode(text) {
+    if (!text) return null;
+    // 匹配 4-6 位纯数字，通常验证码前后会有空格或特殊字符
+    const match = text.match(/(?<!\d)\d{4,6}(?!\d)/);
+    return match ? match[0] : null;
+}
+
+// 复制到剪贴板
+function copyToClipboard(text, btn) {
+    navigator.clipboard.writeText(text).then(() => {
+        const originalText = btn.innerText;
+        btn.innerText = '已复制！';
+        btn.classList.replace('bg-indigo-600', 'bg-green-600');
+        setTimeout(() => {
+            btn.innerText = originalText;
+            btn.classList.replace('bg-green-600', 'bg-indigo-600');
+        }, 2000);
+    });
 }
 
 function formatDate(dateStr) {
@@ -71,7 +106,7 @@ function formatDate(dateStr) {
     const now = new Date();
     const diff = now.getTime() - date.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    
+
     if (days === 0) {
         const hours = Math.floor(diff / (1000 * 60 * 60));
         if (hours === 0) {
@@ -118,14 +153,25 @@ function closeModal() {
 
 function renderLatestEmail(email) {
     const container = document.getElementById('latest-email-content');
+    const code = extractCode(email.text);
+
     container.innerHTML = `
         <div class="space-y-4">
             <div class="flex justify-between items-start">
-                <h3 class="text-xl font-semibold text-gray-900">${email.subject || '(无主题)'}</h3>
-                <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
+                <div>
+                    <h3 class="text-xl font-semibold ${email.isUnseen ? 'text-indigo-700' : 'text-gray-900'}">
+                        ${email.isUnseen ? '● ' : ''}${email.subject || '(无主题)'}
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">${formatDate(email.date)}</p>
+                </div>
+                ${code ? `
+                    <button onclick="copyToClipboard('${code}', this)" class="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors">
+                        复制验证码: ${code}
+                    </button>
+                ` : ''}
             </div>
             <div class="space-y-2">
-                <p class="text-gray-600">${email.from || '未知'}</p>
+                <p class="text-gray-600 font-medium">${email.from || '未知'}</p>
                 <div class="border-t border-gray-100 pt-4">
                     <div class="prose max-w-none">
                         ${email.html || email.text || '(无内容)'}
@@ -138,7 +184,7 @@ function renderLatestEmail(email) {
 
 function renderEmailList(emails) {
     const container = document.getElementById('email-container');
-    
+
     if (emails.length <= 1) {
         container.innerHTML = `
             <div class="text-center py-12">
@@ -146,155 +192,71 @@ function renderEmailList(emails) {
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 <h3 class="mt-2 text-sm font-medium text-gray-900">没有更多邮件</h3>
-                <p class="mt-1 text-sm text-gray-500">暂时没有其他邮件。</p>
             </div>`;
         return;
     }
-    
-    const emailsHTML = emails.slice(1).map((email, index) => `
-        <div class="email-item bg-white rounded-lg shadow p-6 cursor-pointer hover:bg-gray-50" onclick="showModal(currentEmails[${index + 1}])">
-            <div class="flex justify-between items-start">
-                <h3 class="text-lg font-semibold text-gray-900 mb-2">${email.subject || '(无主题)'}</h3>
-                <span class="text-sm text-gray-500">${formatDate(email.date)}</span>
+
+    const emailsHTML = emails.slice(1).map((email, index) => {
+        const code = extractCode(email.text);
+        return `
+            <div class="email-item bg-white rounded-lg shadow p-4 cursor-pointer hover:bg-gray-50 transition-colors" onclick="showModal(currentEmails[${index + 1}])">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold ${email.isUnseen ? 'text-indigo-700' : 'text-gray-900'}">
+                            ${email.isUnseen ? '● ' : ''}${email.subject || '(无主题)'}
+                        </h3>
+                        <p class="text-gray-600 text-sm mb-1">${email.from || '未知'}</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-xs text-gray-400 block mb-2">${formatDate(email.date)}</span>
+                        ${code ? `
+                            <button onclick="event.stopPropagation(); copyToClipboard('${code}', this)" class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded text-xs font-bold hover:bg-indigo-100 border border-indigo-200">
+                                复制 ${code}
+                            </button>
+                        ` : ''}
+                    </div>
+                </div>
+                <p class="text-gray-500 text-sm email-preview mt-1">${email.preview || '(无预览)'}</p>
             </div>
-            <p class="text-gray-600 mb-2">${email.from || '未知'}</p>
-            <p class="text-gray-500 text-sm email-preview">${email.preview || '(无预览)'}</p>
-        </div>
-    `).join('');
-    
+        `;
+    }).join('');
+
     container.innerHTML = emailsHTML;
 }
 
 async function fetchEmails() {
-    const latestEmailContainer = document.getElementById('latest-email-content');
-    const container = document.getElementById('email-container');
-    
     try {
-        console.log('开始获取邮件...');
-        // 获取认证令牌
         const token = localStorage.getItem('auth_token') || sessionStorage.getItem('auth_token');
-        if (!token) {
-            throw new Error('未登录');
-        }
+        if (!token) return;
 
         const response = await fetch('/.netlify/functions/email_handler', {
-            headers: {
-                'Authorization': `Bearer ${token}`,
-                'Content-Type': 'application/json'
-            }
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-        console.log('服务器响应状态:', response.status);
-        
+
         if (response.status === 401) {
             handleAuthError();
             return;
         }
 
-        const responseText = await response.text();
-        console.log('服务器原始响应:', responseText);
-        
-        if (!response.ok) {
-            console.error('服务器错误响应:', responseText);
-            throw new Error(`服务器响应错误 (${response.status}): ${responseText}`);
-        }
-        
-        if (!responseText) {
-            console.error('服务器返回空响应');
-            throw new Error('服务器返回空响应');
-        }
-        
-        let emails;
-        try {
-            emails = JSON.parse(responseText);
-            console.log('解析后的邮件数据:', emails);
+        if (response.ok) {
+            const emails = await response.json();
             currentEmails = emails;
-        } catch (e) {
-            console.error('解析响应JSON失败:', e);
-            throw new Error(`解析服务器响应失败: ${e.message}`);
+            if (emails.length > 0) {
+                renderLatestEmail(emails[0]);
+                renderEmailList(emails);
+            }
         }
-        
-        if (emails.error) {
-            console.error('邮件服务器返回错误:', emails.error);
-            const errorHTML = `
-                <div class="bg-red-50 border-l-4 border-red-500 p-4">
-                    <div class="flex">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <h3 class="text-sm font-medium text-red-800">邮件服务器错误</h3>
-                            <p class="mt-2 text-sm text-red-700">${emails.error}</p>
-                            ${emails.stack ? `<pre class="mt-2 text-xs text-red-700">${emails.stack}</pre>` : ''}
-                            ${emails.details ? `<p class="mt-2 text-sm text-red-700">${emails.details}</p>` : ''}
-                        </div>
-                    </div>
-                    <button onclick="fetchEmails()" class="mt-4 bg-red-100 text-red-800 px-4 py-2 rounded hover:bg-red-200">重试</button>
-                </div>`;
-            latestEmailContainer.innerHTML = errorHTML;
-            container.innerHTML = '';
-            return;
-        }
-        
-        if (!Array.isArray(emails)) {
-            console.error('返回的数据格式不正确:', emails);
-            throw new Error('服务器返回了意外的数据格式');
-        }
-        
-        if (emails.length === 0) {
-            const emptyHTML = `
-                <div class="text-center py-12">
-                    <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-gray-900">没有邮件</h3>
-                    <p class="mt-1 text-sm text-gray-500">收件箱中没有找到任何邮件。</p>
-                </div>`;
-            latestEmailContainer.innerHTML = emptyHTML;
-            container.innerHTML = '';
-            return;
-        }
-        
-        // 渲染最新邮件
-        renderLatestEmail(emails[0]);
-        
-        // 渲染其他邮件列表
-        renderEmailList(emails);
-        
-        console.log('邮件显示完成');
-        
     } catch (error) {
-        console.error('获取邮件时发生错误:', error);
-        const errorHTML = `
-            <div class="bg-red-50 border-l-4 border-red-500 p-4">
-                <div class="flex">
-                    <div class="flex-shrink-0">
-                        <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
-                    </div>
-                    <div class="ml-3">
-                        <h3 class="text-sm font-medium text-red-800">获取邮件失败</h3>
-                        <p class="mt-2 text-sm text-red-700">${error.message}</p>
-                    </div>
-                </div>
-                <button onclick="fetchEmails()" class="mt-4 bg-red-100 text-red-800 px-4 py-2 rounded hover:bg-red-200">重试</button>
-            </div>`;
-        latestEmailContainer.innerHTML = errorHTML;
-        container.innerHTML = '';
+        console.error('获取邮件失败:', error);
     }
 }
 
 // 初始化
 document.getElementById('login-form').addEventListener('submit', handleLogin);
 document.getElementById('email-modal').addEventListener('click', function(e) {
-    if (e.target === this) {
-        closeModal();
-    }
+    if (e.target === this) closeModal();
 });
 
-// 检查登录状态并加载邮件
 if (checkAuth()) {
     fetchEmails();
-} 
+}

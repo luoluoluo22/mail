@@ -27,6 +27,7 @@ interface Email {
   text: string | null;
   html: string | null;
   preview: string | null;
+  isUnseen?: boolean;
 }
 
 // 验证JWT token
@@ -58,17 +59,29 @@ function fetchEmails(): Promise<Email[]> {
           }
 
           console.log('成功打开收件箱');
-          // 获取最新的10封邮件
-          const fetch = imap.seq.fetch(`${Math.max(1, box.messages.total - 9)}:${box.messages.total}`, {
+
+          // 优化策略：优先获取未读，如果不足10封则用已读补充
+          // 注意：这里使用 seq.fetch，获取最新的 10 封并标记未读状态
+          const total = box.messages.total;
+          const start = Math.max(1, total - 9);
+          const fetch = imap.seq.fetch(`${start}:${total}`, {
             bodies: [''],
             struct: true
           });
 
-          totalMessages = Math.min(10, box.messages.total);
-          console.log(`准备获取 ${totalMessages} 封邮件`);
+          totalMessages = total >= 10 ? 10 : total;
+          if (totalMessages === 0) {
+            imap.end();
+            resolve([]);
+            return;
+          }
 
           fetch.on('message', (msg: any, seqno: number) => {
-            console.log(`处理第 ${seqno} 封邮件`);
+            let isUnseen = false;
+            msg.once('attributes', (attrs: any) => {
+              isUnseen = !attrs.flags.includes('\\Seen');
+            });
+
             msg.on('body', (stream: Readable) => {
               let buffer = '';
               stream.on('data', (chunk: Buffer) => {
@@ -83,13 +96,12 @@ function fetchEmails(): Promise<Email[]> {
                     date: parsed.date || null,
                     text: parsed.text || null,
                     html: parsed.html || null,
-                    preview: parsed.text ? parsed.text.slice(0, 200) + (parsed.text.length > 200 ? '...' : '') : null
+                    preview: parsed.text ? parsed.text.slice(0, 200) + (parsed.text.length > 200 ? '...' : '') : null,
+                    isUnseen
                   });
-                  console.log(`成功解析第 ${seqno} 封邮件`);
                   processedCount++;
 
                   if (processedCount === totalMessages) {
-                    console.log('所有邮件处理完成');
                     imap.end();
                     resolve(emails.sort((a, b) => {
                       const dateA = a.date ? new Date(a.date).getTime() : 0;
@@ -98,11 +110,8 @@ function fetchEmails(): Promise<Email[]> {
                     }));
                   }
                 } catch (err) {
-                  console.error(`解析第 ${seqno} 封邮件失败:`, err);
                   processedCount++;
-
                   if (processedCount === totalMessages) {
-                    console.log('所有邮件处理完成（包含错误）');
                     imap.end();
                     resolve(emails.sort((a, b) => {
                       const dateA = a.date ? new Date(a.date).getTime() : 0;
@@ -116,37 +125,24 @@ function fetchEmails(): Promise<Email[]> {
           });
 
           fetch.once('error', (err: Error) => {
-            console.error('获取邮件时发生错误:', err);
             imap.end();
             reject(err);
-          });
-
-          fetch.once('end', () => {
-            console.log('邮件获取完成，等待处理...');
           });
         });
       });
 
       imap.once('error', (err: Error) => {
-        console.error('IMAP连接错误:', err);
         reject(err);
       });
 
-      imap.once('end', () => {
-        console.log('IMAP连接结束');
-      });
-
-      console.log('开始连接IMAP服务器...');
       imap.connect();
     } catch (error) {
-      console.error('fetchEmails函数发生错误:', error);
       reject(error);
     }
   });
 }
 
 export const handler: Handler = async (event) => {
-  // 设置CORS头
   const headers = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
@@ -154,42 +150,24 @@ export const handler: Handler = async (event) => {
     'Content-Type': 'application/json'
   };
 
-  // 处理预检请求
   if (event.httpMethod === 'OPTIONS') {
-    return {
-      statusCode: 204,
-      headers
-    };
+    return { statusCode: 204, headers };
   }
 
-  // 检查认证
   const authHeader = event.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ error: '未授权访问' })
-    };
+    return { statusCode: 401, headers, body: JSON.stringify({ error: '未授权访问' }) };
   }
 
   const token = authHeader.split(' ')[1];
   if (!verifyToken(token)) {
-    return {
-      statusCode: 401,
-      headers,
-      body: JSON.stringify({ error: '无效的认证令牌' })
-    };
+    return { statusCode: 401, headers, body: JSON.stringify({ error: '无效的认证令牌' }) };
   }
 
   try {
     const emails = await fetchEmails();
-    return {
-      statusCode: 200,
-      headers,
-      body: JSON.stringify(emails)
-    };
+    return { statusCode: 200, headers, body: JSON.stringify(emails) };
   } catch (error) {
-    console.error('处理请求时发生错误:', error);
     return {
       statusCode: 500,
       headers,
@@ -199,4 +177,4 @@ export const handler: Handler = async (event) => {
       })
     };
   }
-}; 
+};
